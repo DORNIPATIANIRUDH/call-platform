@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@call-platform/db'
 import { getStorageProvider, recordingKey } from '@call-platform/storage'
-import { createAnalysisQueue, createTranscriptionQueue } from '@call-platform/queue'
+
+// App Router config — increase body size limit and function timeout
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
@@ -11,7 +14,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 401 })
   }
 
-  const formData = await req.formData()
+  let formData: FormData
+  try {
+    formData = await req.formData()
+  } catch {
+    return NextResponse.json({ error: { code: 'PARSE_ERROR', message: 'Could not parse upload. Max file size is 50MB.' } }, { status: 400 })
+  }
+
   const file = formData.get('file') as File | null
   const title = String(formData.get('title') ?? 'Untitled Meeting')
 
@@ -19,16 +28,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { code: 'VALIDATION', message: 'No file provided' } }, { status: 400 })
   }
 
-  const maxBytes = 500 * 1024 * 1024 // 500 MB
+  const maxBytes = 50 * 1024 * 1024 // 50MB — Vercel hobby plan limit
   if (file.size > maxBytes) {
-    return NextResponse.json({ error: { code: 'FILE_TOO_LARGE', message: 'Max file size is 500MB' } }, { status: 400 })
+    return NextResponse.json({ error: { code: 'FILE_TOO_LARGE', message: 'Max file size is 50MB on the free plan.' } }, { status: 400 })
   }
 
   // Check plan limit
   const sub = await prisma.subscription.findUnique({ where: { orgId: session.user.orgId } })
   if (sub && sub.plan === 'FREE' && sub.minutesUsed >= sub.minutesLimit) {
     return NextResponse.json({
-      error: { code: 'LIMIT_REACHED', message: `You've used all ${sub.minutesLimit} free minutes. Upgrade to Pro for unlimited recordings.` }
+      error: { code: 'LIMIT_REACHED', message: `You've used all ${sub.minutesLimit} free minutes.` }
     }, { status: 403 })
   }
 
@@ -41,33 +50,42 @@ export async function POST(req: Request) {
     },
   })
 
-  // Upload to storage
+  // Upload to Supabase Storage
   const storage = getStorageProvider()
-  const ext = file.name.split('.').pop() ?? 'webm'
+  const ext = (file.name.split('.').pop() ?? 'webm').toLowerCase()
   const key = recordingKey(session.user.orgId, meeting.id, ext)
   const buffer = Buffer.from(await file.arrayBuffer())
-  const { storageUrl } = await storage.upload(key, buffer, file.type || 'audio/webm')
+  await storage.upload(key, buffer, file.type || 'audio/webm')
+
+  // Get a signed URL (valid 1 hour) so Deepgram can fetch it
+  const signedUrl = await storage.getSignedUrl(key, 3600)
 
   // Save recording metadata
   await prisma.recording.create({
     data: {
       meetingId: meeting.id,
       storageKey: key,
-      storageUrl,
+      storageUrl: signedUrl,
       mimeType: file.type || 'audio/webm',
       sizeBytes: file.size,
     },
   })
 
-  // Queue transcription job (full-file mode)
-  const transcriptionQueue = createTranscriptionQueue()
-  await transcriptionQueue.add('transcribe-file', {
-    meetingId: meeting.id,
-    orgId: session.user.orgId,
-    audioUrl: storageUrl,
-    isFinal: true,
-  })
-  await transcriptionQueue.close()
+  // Queue transcription — skip gracefully if Redis not available
+  try {
+    const { createTranscriptionQueue } = await import('@call-platform/queue')
+    const transcriptionQueue = createTranscriptionQueue()
+    await transcriptionQueue.add('transcribe-file', {
+      meetingId: meeting.id,
+      orgId: session.user.orgId,
+      audioUrl: signedUrl,
+      isFinal: true,
+    })
+    await transcriptionQueue.close()
+  } catch (err) {
+    console.warn('Queue unavailable — transcription will need to be triggered manually:', err)
+    // Meeting is saved and file is uploaded — don't fail the whole request
+  }
 
   return NextResponse.json({ data: { id: meeting.id, title: meeting.title } }, { status: 201 })
 }

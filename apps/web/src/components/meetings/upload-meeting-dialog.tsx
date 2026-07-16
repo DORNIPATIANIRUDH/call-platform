@@ -74,7 +74,7 @@ export function UploadMeetingDialog({ orgId }: Props) {
               className="mt-1"
               required
             />
-            <p className="mt-1 text-xs text-muted-foreground">MP3, MP4, WAV, WebM, M4A — up to 500MB</p>
+            <p className="mt-1 text-xs text-muted-foreground">MP3, MP4, WAV, WebM, M4A — up to 50MB</p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2 justify-end">
