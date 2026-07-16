@@ -7,6 +7,9 @@ const nextConfig = {
     '@call-platform/storage',
     '@call-platform/integrations',
   ],
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client', '.prisma/client'],
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.googleusercontent.com' },
