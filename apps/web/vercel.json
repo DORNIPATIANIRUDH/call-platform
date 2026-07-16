@@ -1,0 +1,4 @@
+{
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && pnpm --filter @call-platform/db db:generate && cd apps/web && next build"
+}
