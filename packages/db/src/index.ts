@@ -1,4 +1,4 @@
-export { PrismaClient } from '@prisma/client'
+export { PrismaClient } from './generated/client'
 export type {
   User,
   Account,
@@ -16,7 +16,7 @@ export type {
   DealSignal,
   CoachingAlert,
   Prisma,
-} from '@prisma/client'
+} from './generated/client'
 export {
   MemberRole,
   IntegrationPlatform,
@@ -28,9 +28,9 @@ export {
   ActionItemStatus,
   DealSignalType,
   CoachingAlertSeverity,
-} from '@prisma/client'
+} from './generated/client'
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from './generated/client'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 

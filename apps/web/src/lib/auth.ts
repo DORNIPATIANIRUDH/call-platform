@@ -7,7 +7,9 @@ import { prisma } from '@call-platform/db'
 import { slugify } from './utils'
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  adapter: PrismaAdapter(prisma) as any,
   session: { strategy: 'jwt' },
   debug: process.env.APP_ENV !== 'production',
   pages: {

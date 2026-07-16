@@ -18,6 +18,8 @@ out/
 
 # Prisma
 packages/db/node_modules/
+# Keep generated client committed for Vercel
+# packages/db/src/generated/
 
 # Turbo
 .turbo/
