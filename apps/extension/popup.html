@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CallPlatform</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 280px; font-family: -apple-system, sans-serif; background: #fff; color: #111; }
+    .header { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #e5e7eb; }
+    .logo { width: 28px; height: 28px; background: #3b82f6; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; }
+    .title { font-size: 14px; font-weight: 600; }
+    .content { padding: 16px; }
+    .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; margin-bottom: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; }
+    .dot.recording { background: #ef4444; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    label { font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px; }
+    input { width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; margin-bottom: 10px; }
+    button { width: 100%; padding: 8px; border-radius: 6px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; }
+    button.start { background: #3b82f6; color: #fff; }
+    button.start:hover { background: #2563eb; }
+    button.stop { background: #fee2e2; color: #dc2626; }
+    button.stop:hover { background: #fecaca; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .link { margin-top: 10px; text-align: center; font-size: 11px; color: #6b7280; }
+    .link a { color: #3b82f6; text-decoration: none; }
+    .error { background: #fee2e2; color: #dc2626; font-size: 11px; padding: 6px 8px; border-radius: 6px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">📞</div>
+    <span class="title">CallPlatform</span>
+  </div>
+  <div class="content">
+    <div class="status">
+      <div class="dot" id="dot"></div>
+      <span id="statusText">Not recording</span>
+    </div>
+
+    <div id="errorBox" class="error" style="display:none"></div>
+
+    <div id="form">
+      <label for="meetingTitle">Meeting title</label>
+      <input id="meetingTitle" type="text" placeholder="Q3 Discovery Call" />
+      <button id="startBtn" class="start">Start Recording</button>
+    </div>
+
+    <div id="stopSection" style="display:none">
+      <button id="stopBtn" class="stop">Stop Recording</button>
+    </div>
+
+    <div class="link">
+      <a href="https://app.callplatform.io/dashboard" target="_blank">Open Dashboard →</a>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

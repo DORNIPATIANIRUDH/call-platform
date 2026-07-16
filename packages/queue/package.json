@@ -1,0 +1,15 @@
+{
+  "name": "@call-platform/queue",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "bullmq": "^5.8.3",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@call-platform/types": "workspace:*",
+    "typescript": "^5.5.3"
+  }
+}

@@ -1,0 +1,404 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum IntegrationPlatform {
+  ZOOM
+  GOOGLE
+  MICROSOFT
+  SLACK
+  HUBSPOT
+  SALESFORCE
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  BOT_JOINING
+  IN_PROGRESS
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum BotStatus {
+  IDLE
+  JOINING
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  INCOMPLETE
+}
+
+enum ActionItemStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+enum DealSignalType {
+  OBJECTION
+  BUYING_SIGNAL
+  COMPETITOR_MENTION
+  PRICING_DISCUSSION
+  TIMELINE_DISCUSSION
+  DECISION_MAKER_IDENTIFIED
+  NEXT_STEP_AGREED
+}
+
+enum CoachingAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// ─────────────────────────────────────────────────────────────────
+// User & Auth
+// ─────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  memberships OrganizationMember[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Organization (multi-tenant root)
+// ─────────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      OrganizationMember[]
+  subscription Subscription?
+  integrations Integration[]
+  meetings     Meeting[]
+  invites      OrganizationInvite[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id        String     @id @default(cuid())
+  orgId     String
+  userId    String
+  role      MemberRole @default(MEMBER)
+  joinedAt  DateTime   @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@map("organization_members")
+}
+
+model OrganizationInvite {
+  id        String   @id @default(cuid())
+  orgId     String
+  email     String
+  role      MemberRole @default(MEMBER)
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("organization_invites")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Billing
+// ─────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  orgId                String             @unique
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  plan                 PlanTier           @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  seatCount            Int                @default(1)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  minutesUsed          Int                @default(0)
+  minutesLimit         Int                @default(300) // 5h for free
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Integrations (OAuth tokens per platform)
+// ─────────────────────────────────────────────────────────────────
+
+model Integration {
+  id           String              @id @default(cuid())
+  orgId        String
+  platform     IntegrationPlatform
+  accessToken  String              @db.Text
+  refreshToken String?             @db.Text
+  expiresAt    DateTime?
+  scope        String?
+  metadata     Json?               // platform-specific (webhook IDs, channel IDs, etc.)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, platform])
+  @@map("integrations")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Meetings
+// ─────────────────────────────────────────────────────────────────
+
+model Meeting {
+  id              String        @id @default(cuid())
+  orgId           String
+  title           String
+  platform        IntegrationPlatform?
+  externalId      String?       // Zoom meeting ID, Google event ID, etc.
+  joinUrl         String?
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?
+  status          MeetingStatus @default(SCHEDULED)
+  botStatus       BotStatus?
+  hostEmail       String?
+  participantCount Int?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization  Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  recording     Recording?
+  transcripts   Transcript[]
+  analysis      Analysis?
+  actionItems   ActionItem[]
+  dealSignals   DealSignal[]
+  coachingAlerts CoachingAlert[]
+
+  @@index([orgId, scheduledAt])
+  @@index([orgId, status])
+  @@map("meetings")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Recording
+// ─────────────────────────────────────────────────────────────────
+
+model Recording {
+  id          String   @id @default(cuid())
+  meetingId   String   @unique
+  storageKey  String   // path in Supabase Storage
+  storageUrl  String?  // public or signed URL
+  mimeType    String   @default("audio/webm")
+  sizeBytes   Int?
+  durationSec Int?
+  createdAt   DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("recordings")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Transcript
+// ─────────────────────────────────────────────────────────────────
+
+model Transcript {
+  id         String   @id @default(cuid())
+  meetingId  String
+  speaker    String?
+  speakerId  String?  // diarization ID
+  text       String   @db.Text
+  startMs    Int
+  endMs      Int
+  confidence Float?
+  createdAt  DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, startMs])
+  @@map("transcripts")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// AI Analysis
+// ─────────────────────────────────────────────────────────────────
+
+model Analysis {
+  id            String   @id @default(cuid())
+  meetingId     String   @unique
+  summary       String?  @db.Text
+  keyTopics     String[] // array of topic strings
+  talkTime      Json?    // { speakerId: seconds, ... }
+  dealScore     Int?     // 0–100
+  sentiment     String?  // positive | neutral | negative
+  nextSteps     String?  @db.Text
+  crmSynced     Boolean  @default(false)
+  crmSyncedAt   DateTime?
+  processingJob JobStatus @default(PENDING)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("analyses")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Action Items
+// ─────────────────────────────────────────────────────────────────
+
+model ActionItem {
+  id          String           @id @default(cuid())
+  meetingId   String
+  text        String           @db.Text
+  assignee    String?
+  dueDate     DateTime?
+  status      ActionItemStatus @default(OPEN)
+  crmTaskId   String?          // synced task ID in HubSpot/Salesforce
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("action_items")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Deal Signals
+// ─────────────────────────────────────────────────────────────────
+
+model DealSignal {
+  id        String         @id @default(cuid())
+  meetingId String
+  type      DealSignalType
+  text      String         @db.Text
+  speaker   String?
+  timestampMs Int?
+  confidence  Float?
+  createdAt DateTime       @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, type])
+  @@map("deal_signals")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Coaching Alerts (real-time)
+// ─────────────────────────────────────────────────────────────────
+
+model CoachingAlert {
+  id          String                @id @default(cuid())
+  meetingId   String
+  text        String                @db.Text
+  suggestion  String?               @db.Text
+  severity    CoachingAlertSeverity @default(INFO)
+  triggeredAt DateTime              @default(now())
+  dismissed   Boolean               @default(false)
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("coaching_alerts")
+}
