@@ -40,26 +40,26 @@ export default async function DashboardPage() {
     { label: 'Total Meetings', value: totalMeetings, icon: Phone, color: 'text-blue-600' },
     { label: 'This Month', value: completedThisMonth, icon: Clock, color: 'text-green-600' },
     { label: 'Avg Deal Score', value: avgScore ? `${avgScore}/100` : '—', icon: TrendingUp, color: 'text-purple-600' },
-    { label: 'Minutes Limit', value: `${org.subscription?.minutesUsed ?? 0} / ${org.subscription?.minutesLimit ?? 300} min`, icon: Zap, color: 'text-orange-600' },
+    { label: 'Minutes Used', value: `${org.subscription?.minutesUsed ?? 0}/${org.subscription?.minutesLimit ?? 300}`, icon: Zap, color: 'text-orange-600' },
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back to {org.name}</p>
+        <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Welcome back to {org.name}</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Stats — 2 cols on mobile, 4 on desktop */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+            <CardHeader className="flex flex-row items-center justify-between pb-1 pt-3 px-4">
+              <CardTitle className="text-xs font-medium text-muted-foreground leading-tight">{stat.label}</CardTitle>
+              <stat.icon className={`h-4 w-4 shrink-0 ${stat.color}`} />
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{stat.value}</p>
+            <CardContent className="px-4 pb-3">
+              <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
             </CardContent>
           </Card>
         ))}
@@ -67,18 +67,18 @@ export default async function DashboardPage() {
 
       {/* Recent Meetings */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Meetings</CardTitle>
-          <Link href="/dashboard/meetings" className="text-sm text-primary hover:underline">
+        <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
+          <CardTitle className="text-base">Recent Meetings</CardTitle>
+          <Link href="/dashboard/meetings" className="text-xs text-primary hover:underline">
             View all →
           </Link>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-3">
           {recentMeetings.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
+            <div className="py-10 text-center text-muted-foreground">
               <Phone className="mx-auto mb-3 h-8 w-8 opacity-40" />
-              <p className="font-medium">No meetings yet</p>
-              <p className="text-sm">Connect your calendar or upload a recording to get started.</p>
+              <p className="font-medium text-sm">No meetings yet</p>
+              <p className="text-xs mt-1">Upload a recording to get started.</p>
             </div>
           ) : (
             <div className="divide-y">
@@ -88,17 +88,16 @@ export default async function DashboardPage() {
                   href={`/dashboard/meetings/${meeting.id}`}
                   className="flex items-center justify-between py-3 hover:bg-muted/50 -mx-2 px-2 rounded transition-colors"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{meeting.title}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{meeting.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {formatDateTime(meeting.createdAt)}
-                      {meeting.durationSeconds ? ` · ${formatDuration(meeting.durationSeconds)}` : ''}
                     </p>
                   </div>
-                  <div className="ml-4 flex items-center gap-2 shrink-0">
+                  <div className="ml-2 flex items-center gap-1.5 shrink-0">
                     {meeting.analysis?.dealScore != null && (
-                      <Badge variant={meeting.analysis.dealScore >= 70 ? 'success' : meeting.analysis.dealScore >= 40 ? 'secondary' : 'outline'}>
-                        {meeting.analysis.dealScore}/100
+                      <Badge variant={meeting.analysis.dealScore >= 70 ? 'success' : 'secondary'} className="text-xs">
+                        {meeting.analysis.dealScore}
                       </Badge>
                     )}
                     <StatusBadge status={meeting.status} />
@@ -123,5 +122,5 @@ function StatusBadge({ status }: { status: string }) {
     BOT_JOINING: { label: 'Joining', variant: 'secondary' },
   }
   const { label, variant } = map[status] ?? { label: status, variant: 'outline' }
-  return <Badge variant={variant}>{label}</Badge>
+  return <Badge variant={variant} className="text-xs">{label}</Badge>
 }
