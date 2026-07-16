@@ -3,17 +3,30 @@ import type { TranscriptionJobData } from '@call-platform/types'
 import { getTranscriptionProvider } from '@call-platform/ai'
 import { prisma } from '@call-platform/db'
 import { createAnalysisQueue } from '@call-platform/queue'
+import { getStorageProvider } from '@call-platform/storage'
 import { pushTranscriptSegment } from '../lib/pusher'
 
 export async function handleTranscription(job: Job<TranscriptionJobData>) {
-  const { meetingId, orgId, audioUrl, audioChunk, chunkIndex, isFinal } = job.data
+  const { meetingId, orgId, audioUrl: rawAudioUrl, audioChunk, chunkIndex, isFinal } = job.data
 
   await prisma.meeting.update({ where: { id: meetingId }, data: { status: 'IN_PROGRESS' } })
 
   const provider = getTranscriptionProvider()
 
-  if (audioUrl) {
-    // Post-call full-file transcription
+  if (rawAudioUrl) {
+    // Refresh signed URL in case the original expired
+    let audioUrl = rawAudioUrl
+    try {
+      const recording = await prisma.recording.findUnique({ where: { meetingId } })
+      if (recording?.storageKey) {
+        const storage = getStorageProvider()
+        audioUrl = await storage.getSignedUrl(recording.storageKey, 3600)
+      }
+    } catch {
+      // fallback to original URL
+    }
+
+    // Transcribe the file
     const segments = await provider.transcribeFile(audioUrl)
 
     await prisma.$transaction(
