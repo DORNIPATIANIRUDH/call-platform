@@ -31,8 +31,12 @@ export async function GET(req: NextRequest, { params }: Params) {
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/${platform}/callback`
   const state = Buffer.from(JSON.stringify({ orgId: session.user.orgId, userId: session.user.id })).toString('base64url')
 
-  const provider = OAUTH_PROVIDERS[platform]()
-  const url = provider.getAuthorizationUrl(state, redirectUri)
-
-  return NextResponse.redirect(url)
+  try {
+    const provider = OAUTH_PROVIDERS[platform]()
+    const url = provider.getAuthorizationUrl(state, redirectUri)
+    return NextResponse.redirect(url)
+  } catch (err: any) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+    return NextResponse.redirect(`${appUrl}/dashboard/integrations?error=${platform}_not_configured`)
+  }
 }
