@@ -9,6 +9,7 @@ import { slugify } from './utils'
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
+  debug: process.env.APP_ENV !== 'production',
   pages: {
     signIn: '/login',
     newUser: '/onboarding',
@@ -19,11 +20,15 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: { params: { access_type: 'offline', prompt: 'consent' } },
     }),
-    AzureADProvider({
-      clientId: process.env.MICROSOFT_CLIENT_ID!,
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
-      tenantId: 'common',
-    }),
+    ...(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET
+      ? [
+          AzureADProvider({
+            clientId: process.env.MICROSOFT_CLIENT_ID,
+            clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+            tenantId: 'common',
+          }),
+        ]
+      : []),
     ...(process.env.EMAIL_SERVER_HOST
       ? [
           EmailProvider({
